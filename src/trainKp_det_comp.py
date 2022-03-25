@@ -43,12 +43,12 @@ def parse_args():
     parser.add_argument('--augocc', action='store_true', help='occlusion augmentation [default: False]')
     parser.add_argument('--augsca', action='store_true', help='scaling augmentation [default: False]')
     parser.add_argument('--k', type=int, default=20, help='# nearest neighbors in DGCNN [20]')
-    parser.add_argument('--grid_size', type=int, default=4, help='edge length of the 2D grid [4]')
-    parser.add_argument('--grid_scale', type=float, default=0.5, help='scale of the 2D grid [0.5]')
-    parser.add_argument('--num_coarse', type=int, default=1024, help='# points in coarse gt [1024]')
+    parser.add_argument('--grid_size', type=int, default=4, help='edge length of the 2D grid [4]') # 4
+    parser.add_argument('--grid_scale', type=float, default=0.05, help='scale of the 2D grid [0.5]') # 0.5
+    parser.add_argument('--num_coarse', type=int, default=64, help='# points in coarse gt [64]') # 1024 , change to 64
     parser.add_argument('--emb_dims', type=int, default=1024, help='# dimension of DGCNN encoder [1024]')
     parser.add_argument('--input_pts', type=int, default=1024, help='# points of occluded inputs [1024]')
-    parser.add_argument('--gt_pts', type=int, default=16384, help='# points of ground truth inputs [16384]')
+    parser.add_argument('--gt_pts', type=int, default=1024, help='# points of ground truth inputs [1024]') # 16384
 
     return parser.parse_args()
 
@@ -149,10 +149,10 @@ def main(args, task_index):
                 elif args.model == 'pcn_det':
                     pred = detector(points)
                     loss = criterion(pred, target)
-                elif args.mode == 'pcn_det_comp':
-                    x_kp, coarse, fine = detector(points)
+                elif args.model == 'pcn_det_comp':
+                    pred, coarse, fine = detector(points)
                     # loss = criterion(pred, target)
-                    loss = criterion = (x_kp, target, coarse, fine, points)
+                    loss = criterion(pred, target, coarse, fine, points)
                 else:
                     raise NotImplementedError("only support pointnet_det, pcn_det, pcn_det_comp")
 
@@ -182,9 +182,15 @@ def main(args, task_index):
                 if args.model == 'pointnet_det':
                     pred, trans_feat = detector(points)
                     loss = criterion(pred, target, trans_feat)
-                else:
+                elif args.model == 'pcn_det':
                     pred = detector(points)
                     loss = criterion(pred, target)
+                elif args.model == 'pcn_det_comp':
+                    pred, coarse, fine = detector(points)
+                    # loss = criterion(pred, target)
+                    loss = criterion(pred, target, coarse, fine, points)
+                else:
+                    raise NotImplementedError("only support pointnet_det, pcn_det, pcn_det_comp")
 
 
                 batcherror = torch.linalg.norm(target - pred, axis=-1).mean(axis=-1).data.cpu().numpy()
@@ -213,9 +219,15 @@ def main(args, task_index):
                 if args.model == 'pointnet_det':
                     pred, trans_feat = detector(points)
                     loss = criterion(pred, target, trans_feat)
-                else:
+                elif args.model == 'pcn_det':
                     pred = detector(points)
                     loss = criterion(pred, target)
+                elif args.model == 'pcn_det_comp':
+                    pred, coarse, fine = detector(points)
+                    # loss = criterion(pred, target)
+                    loss = criterion(pred, target, coarse, fine, points)
+                else:
+                    raise NotImplementedError("only support pointnet_det, pcn_det, pcn_det_comp")
 
 
                 batcherror = torch.linalg.norm(target - pred, axis=-1).mean(axis=-1).data.cpu().numpy()

@@ -1,5 +1,3 @@
-#  Copyright (c) 2020. Hanchen Wang, hw501@cam.ac.uk
-#  Ref: https://github.com/pytorch/pytorch/issues/7068#issuecomment-487907668
 import torch, os, random, trimesh, numpy as np
 from util.SimulatedData import keypoint_mesh_face
 
