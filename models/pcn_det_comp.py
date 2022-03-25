@@ -60,9 +60,7 @@ class get_model(nn.Module):
         x = self.dp1(x)
         x = F.relu(self.fc2(x))
         x_det_vec = self.fc3(x)
-        x_kp = x.view([-1, 31, 3])
-
-
+        x_kp = x.view([-1, self.num_coarse, 3])
 
         coarse = self.folding1(x_det_vec)
         coarse = coarse.view(-1, self.num_coarse, 3)
@@ -81,7 +79,7 @@ class get_model(nn.Module):
 
         fine = self.folding2(feat.transpose(2, 1)).transpose(2, 1) + center
 
-        return x_kp, x, coarse, fine
+        return x_kp, coarse, fine
 
 
 
@@ -92,8 +90,11 @@ class get_loss(nn.Module):
     def __init__(self):
         super(get_loss, self).__init__()
 
-    def forward(self, pred, target):
-        loss = F.mse_loss(pred, target)
+    def forward(self, pred, target, coarse, fine, gt_pc):
+        kp_loss = F.mse_loss(pred, target)
+        coarse_loss = chamfer_distance_with_batch(coarse, gt_pc)
+        fine_loss = chamfer_distance_with_batch(fine, gt_pc)
+        loss = kp_loss + coarse_loss + fine_loss
         return loss
 
 
