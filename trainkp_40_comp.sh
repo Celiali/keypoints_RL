@@ -36,7 +36,7 @@ fi
 LOGFOLDER=$LOCALDATAPATH/comp_logs
 
 cd $RUNPATH
-python src/trainKp.py --data_path $LOCALDATAPATH/data --log_dir $LOGFOLDER --ck_path $CKFOLDER --batch_size 32 --epoch 100 --model pcn_det_comp --augrot --augocc --augsca --savemodel --tasklist 8 18 10 20 --numkp 40
+python src/trainKp_det_comp.py --data_path $LOCALDATAPATH/data --log_dir $LOGFOLDER --ck_path $CKFOLDER --batch_size 32 --epoch 100 --model pcn_det_comp --augrot --augocc --augsca --savemodel --tasklist 8 18 10 20 --numkp 40
 
-scp -r $LOCALDATAPATH/comp/checkpoint/* $DATAPATH/comp/checkpoint/
-scp -r $LOCALDATAPATH/comp/logs/* $DATAPATH/comp/logs/
+scp -r $LOCALDATAPATH/comp_checkpoint/* $DATAPATH/comp_checkpoint/
+scp -r $LOCALDATAPATH/comp_logs/* $DATAPATH/comp_logs/
