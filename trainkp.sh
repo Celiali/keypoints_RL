@@ -1,0 +1,12 @@
+sbatch trainkp_3.sh
+sbatch trainkp_5.sh
+sbatch trainkp_10.sh
+sbatch trainkp_15.sh
+sbatch trainkp_20.sh
+sbatch trainkp_25.sh
+sbatch trainkp_30.sh
+sbatch trainkp_60.sh
+sbatch trainkp_90.sh
+sbatch trainkp_120.sh
+sbatch trainkp_150.sh
+sbatch trainkp_180.sh
