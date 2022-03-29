@@ -5,8 +5,8 @@
 #SBATCH --constrain "khazadum|rivendell|belegost|shire"
 #SBATCH --mail-type FAIL
 #SBATCH --mail-user zehang@kth.se
-#SBATCH --output /Midgard/home/zehang/project/keypoint_humanoids/stdout/stdout_kp_60_comp_output.log
-#SBATCH --error /Midgard/home/zehang/project/keypoint_humanoids/stdout/stdout_kp_60_comp_error.log
+#SBATCH --output /Midgard/home/zehang/project/keypoint_humanoids/stdout/stdout_kp_60_detect_output.log
+#SBATCH --error /Midgard/home/zehang/project/keypoint_humanoids/stdout/stdout_kp_60_detect_error.log
 
 nvidia-smi
 . ~/miniconda3/etc/profile.d/conda.sh
@@ -27,16 +27,16 @@ scp -r $DATAPATH/data $LOCALDATAPATH/
 RUNPATH=/Midgard/home/zehang/project/keypoint_humanoids
 
 # store checkpoint and logs
-CKFOLDER=$LOCALDATAPATH/comp_checkpoint
+CKFOLDER=$LOCALDATAPATH/detect_checkpoint
 if [ ! -d $CKFOLDERR ]
 then
  mkdir $CKFOLDER
 fi
 
-LOGFOLDER=$LOCALDATAPATH/comp_logs
+LOGFOLDER=$LOCALDATAPATH/detect_logs
 
 cd $RUNPATH
-python src/trainKp_det_comp.py --data_path $LOCALDATAPATH/data --log_dir $LOGFOLDER --ck_path $CKFOLDER --batch_size 32 --epoch 100 --model pcn_det_comp --augrot --augocc --augsca --savemodel --tasklist 2 4 6 12 14 16 --numkp 60
+python src/trainKp_det.py --data_path $LOCALDATAPATH/data --log_dir $LOGFOLDER --ck_path $CKFOLDER --batch_size 32 --epoch 100 --model pcn_det_detect --augrot --augocc --augsca --savemodel --tasklist 2 4 6 12 14 16 --numkp 60
 
-scp -r $LOCALDATAPATH/comp_checkpoint/* $DATAPATH/comp_checkpoint/
-scp -r $LOCALDATAPATH/comp_logs/* $DATAPATH/comp_logs/
+scp -r $LOCALDATAPATH/detect_checkpoint/* $DATAPATH/detect_checkpoint/
+scp -r $LOCALDATAPATH/detect_logs/* $DATAPATH/detect_logs/
