@@ -33,7 +33,8 @@ def parse_args():
     parser.add_argument('--epochs_save', type=int, default=5, help='# epochs to save [default: 5 epochs]')
     parser.add_argument("--tasklist", nargs="+", default=[1, 2])
     parser.add_argument('--numkp', type=int, default=3, help='number of keypoints [default: 3]')
-    parser.add_argument('--detector_ck_path', type=str, help='path to save completion model [default: ]')
+    parser.add_argument('--detector_ck_path', type=str, help='path to the trained detector model [default: ]')
+    parser.add_argument('--decoder_ck_path', type=str, help='path to save decoder model [default: ]')
     parser.add_argument('--data_path', type=str, help='path to the dataset')
 
     ''' === Model Setting === '''
@@ -43,12 +44,12 @@ def parse_args():
     parser.add_argument('--augocc', action='store_true', help='occlusion augmentation [default: False]')
     parser.add_argument('--augsca', action='store_true', help='scaling augmentation [default: False]')
     parser.add_argument('--k', type=int, default=20, help='# nearest neighbors in DGCNN [20]')
-    parser.add_argument('--grid_size', type=int, default=4, help='edge length of the 2D grid [4]') # 4
-    parser.add_argument('--grid_scale', type=float, default=0.05, help='scale of the 2D grid [0.5]') # 0.5
-    parser.add_argument('--num_coarse', type=int, default=64, help='# points in coarse gt [64]') # 1024 , change to 64
+    parser.add_argument('--grid_size', type=int, default=4, help='edge length of the 2D grid [4]')
+    parser.add_argument('--grid_scale', type=float, default=0.5, help='scale of the 2D grid [0.5]')
+    parser.add_argument('--num_coarse', type=int, default=1024, help='# points in coarse gt [1024]')
     parser.add_argument('--emb_dims', type=int, default=1024, help='# dimension of DGCNN encoder [1024]')
     parser.add_argument('--input_pts', type=int, default=1024, help='# points of occluded inputs [1024]')
-    parser.add_argument('--gt_pts', type=int, default=1024, help='# points of ground truth inputs [1024]') # 16384
+    parser.add_argument('--gt_pts', type=int, default=16384, help='# points of ground truth inputs [16384]')
 
     return parser.parse_args()
 
@@ -65,11 +66,15 @@ def main(args, task_index):
     print("load data from {}".format(root))
     kp_dict_file = "src/kp_ind_list.pickle"
     # checkpoints_dir = "checkpoint/{}_{}_{}_{}/{}/{}/".format(args.model, args.augrot, args.augocc, args.augsca, task_index, args.numkp)
-    checkpoints_dir = os.path.join(args.detector_ck_path, "{}_{}_{}_{}/{}/{}/".format(args.model, args.augrot, args.augocc, args.augsca, task_index, args.numkp))
+    detector_checkpoints_dir = os.path.join(args.detector_ck_path, "{}_{}_{}_{}/{}/{}/".format(args.model, args.augrot, args.augocc, args.augsca, task_index, args.numkp))
+    completor_checkpoints_dir = os.path.join(args.decoder_ck_path, "{}_{}_{}_{}/{}/{}/".format(args.model, args.augrot, args.augocc, args.augsca, task_index, args.numkp))
 
     log_dir = os.path.join(args.log_dir, "{}_{}_{}_{}/{}/".format(args.model, args.augrot, args.augocc, args.augsca, args.numkp))
-    if os.path.exists(checkpoints_dir) is False:
-        os.makedirs(checkpoints_dir)
+    if os.path.exists(detector_checkpoints_dir) is False:
+        raise NameError(f"{detector_checkpoints_dir} is not the correct path to load detector")
+
+    if os.path.exists(completor_checkpoints_dir) is False:
+        os.makedirs(completor_checkpoints_dir)
     if os.path.exists(log_dir) is False:
         os.makedirs(log_dir)
 
@@ -97,29 +102,32 @@ def main(args, task_index):
     valDataLoader = DataLoader(VAL_DATASET, batch_size=args.batch_size, shuffle=True, num_workers=4, drop_last=False)
     testDataLoader = DataLoader(TEST_DATASET, batch_size=args.batch_size, shuffle=True, num_workers=4, drop_last=False)
 
-    ''' === Load Model and Backup Scripts === '''
-    MODEL = importlib.import_module(args.model)
+    ''' === Restore Keypoint detection model from keypoint generation=== '''
+    MODEL_DET = importlib.import_module(args.model)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    detector = MODEL.get_model(args=args, grid_size=args.grid_size,
+    detector = MODEL_DET.get_model(args=args, grid_size=args.grid_size,
                                 grid_scale=args.grid_scale, num_coarse=args.num_coarse, num_channel=3, num_cp = args.numkp).to(device)
 
-    criterion = MODEL.get_loss().to(device)
     detector = torch.nn.DataParallel(detector)
     print('=' * 27)
     print('Using %d GPU,' % torch.cuda.device_count(), 'Indices: %s' % args.gpu)
     print('=' * 27)
+    bestepoch = np.max([int(ckfile.split('.')[0].split('_')[-1]) for ckfile in os.listdir(detector_checkpoints_dir)])
+    args.restore_path_root = os.path.join(detector_checkpoints_dir, "model_epoch_{}.pth".format(bestepoch))
+    detector.load_state_dict(torch.load(args.restore_path_root)['model_state_dict'])
+    print(f"load state dict: {detector_checkpoints_dir}")
+    detector.eval()
 
-    ''' === Restore Model from Checkpoints, If there is any === '''
-    if args.restore:
-        checkpoint = torch.load(args.restore_path)
-        detector = copy_parameters(detector, checkpoint, verbose=True)
-        print("Use pre-trained model")
-    else:
-        print("Start training from scratch")
+    MODEL_COMP = importlib.import_module("decoder_comp")
+    completor = MODEL_COMP.get_model(args=args, grid_size=args.grid_size,
+                                   grid_scale=args.grid_scale, num_coarse=args.num_coarse, num_channel=3,
+                                   num_cp=args.numkp).to(device)
+    completor = torch.nn.DataParallel(completor)
+    criterion = MODEL_COMP.get_loss().to(device)
 
     ''' === Optimizer setup === '''
     optimizer = torch.optim.Adam(
-        detector.parameters(),
+        completor.parameters(),
         lr=args.lr,
         betas=(0.9, 0.999),
         eps=1e-08,
@@ -136,28 +144,16 @@ def main(args, task_index):
             loss_trn = 0
             batchcount = 0
             errorlist = np.array([])
+            completor.train()
             # for  points, target, _ in tepoch:
             for  points, target, ref, sid, fid in tepoch:
                 batchcount += 1
                 points, target = points.transpose(2, 1).float().cuda(), target.float().cuda()
 
-                detector.train()
-                optimizer.zero_grad()
-                if args.model == 'pointnet_det':
-                    pred, trans_feat = detector(points)
-                    loss = criterion(pred, target, trans_feat)
-                elif args.model == 'pcn_det':
-                    pred = detector(points)
-                    loss = criterion(pred, target)
-                elif args.model == 'pcn_det_comp':
-                    pred, coarse, fine = detector(points)
-                    # loss = criterion(pred, target)
-                    loss = criterion(pred, target, coarse, fine, points)
-                else:
-                    raise NotImplementedError("only support pointnet_det, pcn_det, pcn_det_comp")
+                pred_kp = detector(points)
+                pc_coarse, pc_fine = detector(pred_kp)
+                loss = criterion(pc_coarse, pc_fine, points)
 
-                batcherror = torch.linalg.norm(target - pred, axis=-1).mean(axis=-1).data.cpu().numpy()
-                errorlist = np.hstack((errorlist,batcherror))
                 loss.backward()
                 optimizer.step()
 
@@ -167,34 +163,20 @@ def main(args, task_index):
             loss_trn /= batchcount
 
         print("epoch {}: training loss={}".format(epoch, loss_trn))
-        print("epoch {}: keypoint detection error={}".format(epoch, np.mean(errorlist)))
 
         with tqdm(valDataLoader, unit="batch") as tepoch:
             loss_val = 0
             batchcount = 0
             errorlist = []
+            completor.eval()
             # for  points, target, _ in tepoch:
             for points, target, ref, sid, fid in tepoch:
                 batchcount += 1
                 points, target = points.transpose(2, 1).float().cuda(), target.float().cuda()
 
-                detector.eval()
-                if args.model == 'pointnet_det':
-                    pred, trans_feat = detector(points)
-                    loss = criterion(pred, target, trans_feat)
-                elif args.model == 'pcn_det':
-                    pred = detector(points)
-                    loss = criterion(pred, target)
-                elif args.model == 'pcn_det_comp':
-                    pred, coarse, fine = detector(points)
-                    # loss = criterion(pred, target)
-                    loss = criterion(pred, target, coarse, fine, points)
-                else:
-                    raise NotImplementedError("only support pointnet_det, pcn_det, pcn_det_comp")
-
-
-                batcherror = torch.linalg.norm(target - pred, axis=-1).mean(axis=-1).data.cpu().numpy()
-                errorlist = np.hstack((errorlist,batcherror))
+                pred_kp = detector(points)
+                pc_coarse, pc_fine = detector(pred_kp)
+                loss = criterion(pc_coarse, pc_fine, points)
 
                 tepoch.set_postfix(loss=loss.item())
                 loss_val += loss.item()
@@ -204,34 +186,20 @@ def main(args, task_index):
 
 
         print("epoch {}: validation loss={}".format(epoch, loss_val))
-        print("epoch {}: keypoint detection error={}".format(epoch, np.mean(errorlist)))
 
         with tqdm(testDataLoader, unit="batch") as tepoch:
             loss_test = 0
             batchcount = 0
             errorlist = []
+            completor.eval()
             # for  points, target, _ in tepoch:
             for points, target, ref, sid, fid in tepoch:
                 batchcount += 1
                 points, target = points.transpose(2, 1).float().cuda(), target.float().cuda()
 
-                detector.eval()
-                if args.model == 'pointnet_det':
-                    pred, trans_feat = detector(points)
-                    loss = criterion(pred, target, trans_feat)
-                elif args.model == 'pcn_det':
-                    pred = detector(points)
-                    loss = criterion(pred, target)
-                elif args.model == 'pcn_det_comp':
-                    pred, coarse, fine = detector(points)
-                    # loss = criterion(pred, target)
-                    loss = criterion(pred, target, coarse, fine, points)
-                else:
-                    raise NotImplementedError("only support pointnet_det, pcn_det, pcn_det_comp")
-
-
-                batcherror = torch.linalg.norm(target - pred, axis=-1).mean(axis=-1).data.cpu().numpy()
-                errorlist = np.hstack((errorlist,batcherror))
+                pred_kp = detector(points)
+                pc_coarse, pc_fine = detector(pred_kp)
+                loss = criterion(pc_coarse, pc_fine, points)
 
                 tepoch.set_postfix(loss=loss.item())
                 loss_test += loss.item()
@@ -239,7 +207,6 @@ def main(args, task_index):
             loss_test /= batchcount
 
         print("epoch {}: testing loss={}".format(epoch, loss_test))
-        print("epoch {}: keypoint detection error={}".format(epoch, np.mean(errorlist)))
 
 
         if loss_val <= loss_val_best:
@@ -253,7 +220,7 @@ def main(args, task_index):
                     'model_state_dict': detector.state_dict(),
                     'optimizer_state_dict': optimizer.state_dict(),
                 }
-                torch.save(state, os.path.join(checkpoints_dir,
+                torch.save(state, os.path.join(completor_checkpoints_dir,
                                                "model_epoch_{}.pth".format(epoch)))
                 loss_test_final = loss_test
                 # only record the test error when we have a better validation loss

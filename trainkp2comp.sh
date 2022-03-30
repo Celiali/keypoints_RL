@@ -1,0 +1,13 @@
+sbatch trainkp_3_kp2comp.sh
+sbatch trainkp_5_kp2comp.sh
+sbatch trainkp_10_kp2comp.sh
+sbatch trainkp_15_kp2comp.sh
+sbatch trainkp_20_kp2comp.sh
+sbatch trainkp_25_kp2comp.sh
+sbatch trainkp_30_kp2comp.sh
+sbatch trainkp_35_kp2comp.sh
+sbatch trainkp_40_kp2comp.sh
+sbatch trainkp_45_kp2comp.sh
+sbatch trainkp_50_kp2comp.sh
+sbatch trainkp_55_kp2comp.sh
+sbatch trainkp_60_kp2comp.sh

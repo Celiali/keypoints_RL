@@ -1,5 +1,5 @@
 import torch, os, random, trimesh, numpy as np
-from util.SimulatedData import keypoint_mesh_face
+# from util.SimulatedData import keypoint_mesh_face
 
 
 def seed_torch(seed=1029):
