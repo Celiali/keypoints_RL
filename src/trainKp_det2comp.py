@@ -151,8 +151,8 @@ def main(args, task_index):
                 points, target = points.transpose(2, 1).float().cuda(), target.float().cuda()
 
                 pred_kp = detector(points)
-                pc_coarse, pc_fine = detector(pred_kp)
-                loss = criterion(pc_coarse, pc_fine, points)
+                pc_coarse, pc_fine = completor(pred_kp)
+                loss, _, _ = criterion(pc_coarse, pc_fine, points)
 
                 loss.backward()
                 optimizer.step()
@@ -175,8 +175,8 @@ def main(args, task_index):
                 points, target = points.transpose(2, 1).float().cuda(), target.float().cuda()
 
                 pred_kp = detector(points)
-                pc_coarse, pc_fine = detector(pred_kp)
-                loss = criterion(pc_coarse, pc_fine, points)
+                pc_coarse, pc_fine = completor(pred_kp)
+                loss, _, _ = criterion(pc_coarse, pc_fine, points)
 
                 tepoch.set_postfix(loss=loss.item())
                 loss_val += loss.item()
@@ -198,8 +198,8 @@ def main(args, task_index):
                 points, target = points.transpose(2, 1).float().cuda(), target.float().cuda()
 
                 pred_kp = detector(points)
-                pc_coarse, pc_fine = detector(pred_kp)
-                loss = criterion(pc_coarse, pc_fine, points)
+                pc_coarse, pc_fine = completor(pred_kp)
+                loss, _, _ = criterion(pc_coarse, pc_fine, points)
 
                 tepoch.set_postfix(loss=loss.item())
                 loss_test += loss.item()
