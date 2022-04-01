@@ -27,7 +27,7 @@ class get_model(nn.Module):
         self.numKeypoint = kwargs['num_cp']
         self.grid_scale = kwargs['grid_scale']
         self.grid_size = kwargs['grid_size']
-        self.num_fine = self.grid_size ** 2 * self.num_coarse # 1024
+        self.num_fine = kwargs['num_fine'] # self.num_fine = self.grid_size ** 2 * self.num_coarse # 1024
 
         self.meshgrid = [[-self.grid_scale, self.grid_scale, self.grid_size],
                          [-self.grid_scale, self.grid_scale, self.grid_size]]
@@ -37,15 +37,15 @@ class get_model(nn.Module):
         # ''' === encoder for extracting feature === '''
         # self.feat = PCNEncoder(global_feat=True, channel=3)
 
-        ''' === detection layer === '''
-        self.fc1 = nn.Linear(1024, 512)
-        self.fc2 = nn.Linear(512, 256)
-        self.fc3 = nn.Linear(256, self.numKeypoint * 3)
-
-        self.dp1 = nn.Dropout(p=0.3)
-        self.bn1 = nn.BatchNorm1d(512)
-
-        self.view = View((3, self.numKeypoint))
+        # ''' === detection layer === '''
+        # self.fc1 = nn.Linear(1024, 512)
+        # self.fc2 = nn.Linear(512, 256)
+        # self.fc3 = nn.Linear(256, self.numKeypoint * 3)
+        #
+        # self.dp1 = nn.Dropout(p=0.3)
+        # self.bn1 = nn.BatchNorm1d(512)
+        #
+        # self.view = View((3, self.numKeypoint))
 
         ''' === completion layer === '''
         # batch normalisation will destroy limit the expression
