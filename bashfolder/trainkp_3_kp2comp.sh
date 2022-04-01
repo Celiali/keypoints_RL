@@ -5,8 +5,8 @@
 #SBATCH --constrain "khazadum|rivendell|belegost|shire"
 #SBATCH --mail-type FAIL
 #SBATCH --mail-user zehang@kth.se
-#SBATCH --output /Midgard/home/zehang/project/keypoint_humanoids/stdout/stdout_kp_15_kp2comp_output.log
-#SBATCH --error /Midgard/home/zehang/project/keypoint_humanoids/stdout/stdout_kp_15_kp2comp_error.log
+#SBATCH --output /Midgard/home/zehang/project/keypoint_humanoids/stdout/stdout_kp_3_kp2comp_output.log
+#SBATCH --error /Midgard/home/zehang/project/keypoint_humanoids/stdout/stdout_kp_3_kp2comp_error.log
 
 nvidia-smi
 . ~/miniconda3/etc/profile.d/conda.sh
@@ -41,7 +41,7 @@ RUNPATH=/Midgard/home/zehang/project/keypoint_humanoids
 
 #TODO: 8 18 10 20
 cd $RUNPATH
-python src/trainKp_det2comp.py --data_path $LOCALDATAPATH/data --log_dir $LOCALDATAPATH/kp2comp_logs --detector_ck_path $DETECTOR_CKFOLDER --decoder_ck_path $LOCALDATAPATH/kp2comp_checkpoint --batch_size 32 --epoch 100 --model pcn_det --augrot --augocc --augsca --savemodel --tasklist 2 4 6 8 10 12 14 16 18 20--numkp 15
+python src/trainKp_det2comp.py --data_path $LOCALDATAPATH/data --log_dir $LOCALDATAPATH/kp2comp_logs --detector_ck_path $DETECTOR_CKFOLDER --decoder_ck_path $LOCALDATAPATH/kp2comp_checkpoint --batch_size 32 --epoch 100 --model pcn_det --augrot --augocc --augsca --savemodel --tasklist 2 4 6 8 10 12 14 16 18 20--numkp 3
 
 scp -r $LOCALDATAPATH/kp2comp_checkpoint/* $DATAPATH/kp2comp_checkpoint/
 scp -r $LOCALDATAPATH/kp2comp_logs/* $DATAPATH/kp2comp_logs/
