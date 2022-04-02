@@ -13,7 +13,7 @@ sys.path.append('/Midgard/home/zehang/project/keypoint_humanoids')
 from torch.utils.data import DataLoader
 from util import Datasets
 from util.Torch_Utility import copy_parameters
-from util.loaddata import General_PartKPDataLoader_HDF5, General_PartKPDataLoader_dyn_HDF5
+from util.loaddata import General_PartKPDataLoader_dyn_HDF5
 
 def parse_args():
     parser = argparse.ArgumentParser('Point Cloud Keypoint Detection')
@@ -90,13 +90,13 @@ def main(args, task_index):
     # task = Datasets.get_task_by_index(task_index)
 
     H5DataPath = os.path.join(tasks_path, "{}_{}_full.h5".format(task_index, 'train'))
-    TRAIN_DATASET = General_PartKPDataLoader_HDF5(H5DataPath, augrot=args.augrot, augocc=args.augocc, augsca=args.augsca, ref="left", kp_dict_file=kp_dict_file, numkp=args.numkp)
+    TRAIN_DATASET = General_PartKPDataLoader_dyn_HDF5(H5DataPath, augrot=args.augrot, augocc=args.augocc, augsca=args.augsca, ref="left", kp_dict_file=kp_dict_file, numkp=args.numkp)
     # VAL
     H5DataPath = os.path.join(tasks_path, "{}_{}_full.h5".format(task_index, 'valid'))
-    VAL_DATASET = General_PartKPDataLoader_HDF5(H5DataPath, augrot=args.augrot, augocc=args.augocc, augsca=args.augsca, ref="left", kp_dict_file=kp_dict_file, numkp=args.numkp)
+    VAL_DATASET = General_PartKPDataLoader_dyn_HDF5(H5DataPath, augrot=args.augrot, augocc=args.augocc, augsca=args.augsca, ref="left", kp_dict_file=kp_dict_file, numkp=args.numkp)
     # TEST
     H5DataPath = os.path.join(tasks_path, "{}_{}_full.h5".format(task_index, 'test'))
-    TEST_DATASET = General_PartKPDataLoader_HDF5(H5DataPath, augrot=args.augrot, augocc=args.augocc, augsca=args.augsca, ref="left", kp_dict_file=kp_dict_file, numkp=args.numkp)
+    TEST_DATASET = General_PartKPDataLoader_dyn_HDF5(H5DataPath, augrot=args.augrot, augocc=args.augocc, augsca=args.augsca, ref="left", kp_dict_file=kp_dict_file, numkp=args.numkp)
 
 
     trainDataLoader = DataLoader(TRAIN_DATASET, batch_size=args.batch_size, shuffle=True, num_workers=4, drop_last=True)
@@ -116,7 +116,7 @@ def main(args, task_index):
     bestepoch = np.max([int(ckfile.split('.')[0].split('_')[-1]) for ckfile in os.listdir(detector_checkpoints_dir)])
     args.restore_path_root = os.path.join(detector_checkpoints_dir, "model_epoch_{}.pth".format(bestepoch))
     detector.load_state_dict(torch.load(args.restore_path_root)['model_state_dict'])
-    print(f"load state dict: {detector_checkpoints_dir}")
+    print(f"load state dict: {torch.load(args.restore_path_root)['model_state_dict']}")
     detector.eval()
 
 

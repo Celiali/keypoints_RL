@@ -402,8 +402,8 @@ class General_PartKPDataLoader_dyn_HDF5(Dataset):
 
     def __getitem__(self, index):
         # read frame id
-        scenario_index = index // self.num_frames
-        frame_index = index % self.num_frames
+        scenario_index = index // (self.num_frames - self.frame_step)
+        frame_index = index % (self.num_frames - self.frame_step)
         # t1
         point_xyz_t1 = self.pc[scenario_index, frame_index]
         point_kp_t1 = self.kp[scenario_index, frame_index]
@@ -413,6 +413,9 @@ class General_PartKPDataLoader_dyn_HDF5(Dataset):
 
         point_xyz_container_t1 = np.zeros((self.num_points, 4))
         point_xyz_container_t2 = np.zeros((self.num_points, 4))
+
+        print(f"point xyz container t1 shape: {point_xyz_container_t1}")
+        print(f"point xyz container t2 shape: {point_xyz_container_t2}")
 
         # read the handle for nomalization
         if self.ref == "left":
@@ -475,6 +478,11 @@ class General_PartKPDataLoader_dyn_HDF5(Dataset):
 
             point_xyz_t2 = RandomScale(point_xyz_t2, sx, sy, sz)
             point_kp_t2 = RandomScale(point_kp_t2, sx, sy, sz)
+
+        print(f"point xyz container t1 shape: {point_xyz_container_t1}")
+        print(f"point xyz container t2 shape: {point_xyz_container_t2}")
+        print(f"num_mt_map_t1: {num_mt_map_t1}")
+        print(f"num_mt_map_t2: {num_mt_map_t2}")
 
         # padding
         point_xyz_container_t1[:num_mt_map_t1, :3] = point_xyz_t1[:num_mt_map_t1]
