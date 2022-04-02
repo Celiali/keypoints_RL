@@ -31,7 +31,7 @@ class get_model(nn.Module):
 
     def forward(self, input_pc, input_action):
         x_det_vec = input_pc.view([-1, self.numKeypoint * 3])
-        x_action_vec = input_action.view([-1, self.numKeypoint * 3])
+        x_action_vec = input_action.view([-1, 1 * 3])
         x = torch.hstack((x_det_vec, x_action_vec))
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))

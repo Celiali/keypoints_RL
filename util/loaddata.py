@@ -414,9 +414,6 @@ class General_PartKPDataLoader_dyn_HDF5(Dataset):
         point_xyz_container_t1 = np.zeros((self.num_points, 4))
         point_xyz_container_t2 = np.zeros((self.num_points, 4))
 
-        print(f"point xyz container t1 shape: {point_xyz_container_t1}")
-        print(f"point xyz container t2 shape: {point_xyz_container_t2}")
-
         # read the handle for nomalization
         if self.ref == "left":
             # point_ref = self.data["lefthandPos"][scenario_index, frame_index]
@@ -464,7 +461,7 @@ class General_PartKPDataLoader_dyn_HDF5(Dataset):
             num_mt_map_t2 = len(pt_map_t2)
 
             pcd_t1 = pcd_t1.select_by_index(pt_map_t1)
-            pcd_t2 = pcd_t2.select_by_index(pt_map_t1)
+            pcd_t2 = pcd_t2.select_by_index(pt_map_t2)
             # pcd = pcd.select_down_sample(pt_map) # can we do double sample?
             point_xyz_t1 = np.array(pcd_t1.points)
             point_xyz_t2 = np.array(pcd_t2.points)
@@ -478,11 +475,6 @@ class General_PartKPDataLoader_dyn_HDF5(Dataset):
 
             point_xyz_t2 = RandomScale(point_xyz_t2, sx, sy, sz)
             point_kp_t2 = RandomScale(point_kp_t2, sx, sy, sz)
-
-        print(f"point xyz container t1 shape: {point_xyz_container_t1}")
-        print(f"point xyz container t2 shape: {point_xyz_container_t2}")
-        print(f"num_mt_map_t1: {num_mt_map_t1}")
-        print(f"num_mt_map_t2: {num_mt_map_t2}")
 
         # padding
         point_xyz_container_t1[:num_mt_map_t1, :3] = point_xyz_t1[:num_mt_map_t1]
