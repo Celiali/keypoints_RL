@@ -12,7 +12,7 @@ def main():
     # taskIdlist = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]
     # taskIdlist = [12,13,14,15,16,17,18,19,20]
     # taskIdlist = [8,18,10,20]
-    taskIdlist = [2,4,6,12,14,16]
+    taskIdlist = [2,4,6,8,10,12,14,16,18,20]
 
     set_namelist = ["train", "valid", "test"]
     # set_name = set_namelist[0]

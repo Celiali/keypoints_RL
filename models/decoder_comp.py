@@ -1,5 +1,6 @@
-#  Ref: https://github.com/hansen7/OcCo
-# TODO: Reimplement chamfer distance in Torch and add completion/topo loss back; decoder
+'''
+decoder with 2 folding layers, point cloud completion
+'''
 
 from models.pcn_util import PCNEncoder
 import torch, torch.nn as nn, torch.nn.functional as F

@@ -34,7 +34,7 @@ def parse_args():
     parser.add_argument("--tasklist", nargs="+", default=[1, 2])
     parser.add_argument('--numkp', type=int, default=3, help='number of keypoints [default: 3]')
     parser.add_argument('--detector_ck_path', type=str, help='path to the trained detector model [default: ]')
-    parser.add_argument('--decoder_ck_path', type=str, help='path to save decoder model [default: ]')
+    parser.add_argument('--dyn_predictor_ck_path', type=str, help='path to save dyn_predictor model [default: ]')
     parser.add_argument('--data_path', type=str, help='path to the dataset')
 
     ''' === Model Setting === '''
@@ -68,14 +68,14 @@ def main(args, task_index):
     kp_dict_file = "src/kp_ind_list.pickle"
     # checkpoints_dir = "checkpoint/{}_{}_{}_{}/{}/{}/".format(args.model, args.augrot, args.augocc, args.augsca, task_index, args.numkp)
     detector_checkpoints_dir = os.path.join(args.detector_ck_path, "{}_{}_{}_{}/{}/{}/".format(args.model, args.augrot, args.augocc, args.augsca, task_index, args.numkp))
-    completor_checkpoints_dir = os.path.join(args.decoder_ck_path, "{}_{}_{}_{}/{}/{}/".format(args.model, args.augrot, args.augocc, args.augsca, task_index, args.numkp))
+    dyn_predictor_checkpoints_dir = os.path.join(args.dyn_predictor_ck_path, "{}_{}_{}_{}/{}/{}/".format(args.model, args.augrot, args.augocc, args.augsca, task_index, args.numkp))
 
     log_dir = os.path.join(args.log_dir, "{}_{}_{}_{}/{}/".format(args.model, args.augrot, args.augocc, args.augsca, args.numkp))
     if os.path.exists(detector_checkpoints_dir) is False:
         raise NameError(f"{detector_checkpoints_dir} is not the correct path to load detector")
 
-    if os.path.exists(completor_checkpoints_dir) is False:
-        os.makedirs(completor_checkpoints_dir)
+    if os.path.exists(dyn_predictor_checkpoints_dir) is False:
+        os.makedirs(dyn_predictor_checkpoints_dir)
     if os.path.exists(log_dir) is False:
         os.makedirs(log_dir)
 
@@ -120,16 +120,16 @@ def main(args, task_index):
     detector.eval()
 
 
-    MODEL_COMP = importlib.import_module("decoder_comp")
-    completor = MODEL_COMP.get_model(args=args, grid_size=args.grid_size,
+    MODEL_DYN = importlib.import_module("dynamics_predictor")
+    dyn_predictor = MODEL_DYN.get_model(args=args, grid_size=args.grid_size,
                                    grid_scale=args.grid_scale, num_coarse=args.num_coarse, num_fine=args.num_fine, num_channel=3,
                                    num_cp=args.numkp).to(device)
-    completor = torch.nn.DataParallel(completor)
-    criterion = MODEL_COMP.get_loss().to(device)
+    dyn_predictor = torch.nn.DataParallel(dyn_predictor)
+    criterion = MODEL_DYN.get_loss().to(device)
 
     ''' === Optimizer setup === '''
     optimizer = torch.optim.Adam(
-        completor.parameters(),
+        dyn_predictor.parameters(),
         lr=args.lr,
         betas=(0.9, 0.999),
         eps=1e-08,
@@ -146,15 +146,19 @@ def main(args, task_index):
             loss_trn = 0
             batchcount = 0
             errorlist = np.array([])
-            completor.train()
+            dyn_predictor.train()
             # for  points, target, _ in tepoch:
-            for  points, target, ref, sid, fid in tepoch:
+            for  points_t1, points_t2, target_t1, target_t2, ref_t1, ref_t2, sid, fid in tepoch:
                 batchcount += 1
-                points, target = points.transpose(2, 1).float().cuda(), target.float().cuda()
+                points_t1 = points_t1.transpose(2, 1).float().cuda()
+                points_t2 = points_t2.transpose(2, 1).float().cuda()
 
-                pred_kp = detector(points)
-                pc_coarse, pc_fine = completor(pred_kp)
-                loss, _, _ = criterion(pc_coarse, pc_fine, points)
+                pred_kp_t1 = detector(points_t1)
+                pred_kp_t2 = detector(points_t2)
+
+                action = ref_t2 - ref_t1
+                est_kp_t2 = dyn_predictor(pred_kp_t1, action)
+                loss = criterion(est_kp_t2, pred_kp_t2)
 
                 loss.backward()
                 optimizer.step()
@@ -170,20 +174,22 @@ def main(args, task_index):
             loss_val = 0
             batchcount = 0
             errorlist = []
-            completor.eval()
+            dyn_predictor.eval()
             # for  points, target, _ in tepoch:
-            for points, target, ref, sid, fid in tepoch:
+            for  points_t1, points_t2, target_t1, target_t2, ref_t1, ref_t2, sid, fid in tepoch:
                 batchcount += 1
-                points, target = points.transpose(2, 1).float().cuda(), target.float().cuda()
+                points_t1 = points_t1.transpose(2, 1).float().cuda()
+                points_t2 = points_t2.transpose(2, 1).float().cuda()
 
-                pred_kp = detector(points)
-                pc_coarse, pc_fine = completor(pred_kp)
-                loss, _, _ = criterion(pc_coarse, pc_fine, points)
+                pred_kp_t1 = detector(points_t1)
+                pred_kp_t2 = detector(points_t2)
+
+                action = ref_t2 - ref_t1
+                est_kp_t2 = dyn_predictor(pred_kp_t1, action)
+                loss = criterion(est_kp_t2, pred_kp_t2)
 
                 tepoch.set_postfix(loss=loss.item())
                 loss_val += loss.item()
-
-
             loss_val /= batchcount
 
 
@@ -193,15 +199,21 @@ def main(args, task_index):
             loss_test = 0
             batchcount = 0
             errorlist = []
-            completor.eval()
+            dyn_predictor.eval()
             # for  points, target, _ in tepoch:
-            for points, target, ref, sid, fid in tepoch:
-                batchcount += 1
-                points, target = points.transpose(2, 1).float().cuda(), target.float().cuda()
 
-                pred_kp = detector(points)
-                pc_coarse, pc_fine = completor(pred_kp)
-                loss, _, _ = criterion(pc_coarse, pc_fine, points)
+            # for  points, target, _ in tepoch:
+            for  points_t1, points_t2, target_t1, target_t2, ref_t1, ref_t2, sid, fid in tepoch:
+                batchcount += 1
+                points_t1 = points_t1.transpose(2, 1).float().cuda()
+                points_t2 = points_t2.transpose(2, 1).float().cuda()
+
+                pred_kp_t1 = detector(points_t1)
+                pred_kp_t2 = detector(points_t2)
+
+                action = ref_t2 - ref_t1
+                est_kp_t2 = dyn_predictor(pred_kp_t1, action)
+                loss = criterion(est_kp_t2, pred_kp_t2)
 
                 tepoch.set_postfix(loss=loss.item())
                 loss_test += loss.item()
@@ -219,10 +231,10 @@ def main(args, task_index):
                 # store the model
                 state = {
                     'epoch': epoch,
-                    'model_state_dict': completor.state_dict(),
+                    'model_state_dict': dyn_predictor.state_dict(),
                     'optimizer_state_dict': optimizer.state_dict(),
                 }
-                torch.save(state, os.path.join(completor_checkpoints_dir,
+                torch.save(state, os.path.join(dyn_predictor_checkpoints_dir,
                                                "model_epoch_{}.pth".format(epoch)))
                 loss_test_final = loss_test
                 # only record the test error when we have a better validation loss

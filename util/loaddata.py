@@ -346,6 +346,155 @@ class General_PartKPDataLoader_HDF5(Dataset):
             point_xyz_container[:num_mt_map, 3] = 1
             return point_xyz_container, point_kp, point_ref, scenario_index, frame_index
 
+class General_PartKPDataLoader_dyn_HDF5(Dataset):
+    """
+    TODO: Change description later
+        Dataloader for loading partially observed point cloud and keypoints. Note that the occluded point clouds may have different size, we need to do padding in order to form the batches
+        The dataloader will return:
+            point_xyz_t1: partially-observed normalized simulated point cloud
+            point_xyz_t2: partially-observed normalized simulated point cloud
+            point_kp: fully-observed (31) normalized keypoint positions
+            point_ref: reference (left-hand position) point for normalization
+    """
+
+    def __init__(self,
+                 H5dataPath, num_points = 1024, padding = "replace",augrot=False, augocc=False, augsca=False, ref = "left", kp_dict_file=None, numkp= 2,frame_step=5):
+
+        # self.data = h5py.File(H5dataPath, 'r')
+        data = h5py.File(H5dataPath, 'r')
+        self.num_points = num_points
+        self.padding = padding
+        self.numkp = numkp
+
+        with (open(kp_dict_file, "rb")) as openfile:
+            self.kp_ind_dict = pickle.load(openfile)
+
+        self.kp_ind = self.kp_ind_dict[numkp]
+
+        self.frame_step = frame_step
+        # self.num_scenarios, self.num_frames, _, _ = self.data["refPos"][:].shape
+        self.num_scenarios, self.num_frames, _, _ = data["refPos"][:].shape
+        self.num_samples = self.num_scenarios * (self.num_frames - self.frame_step)
+
+
+
+        self.indices = [(scenario_index, frame_index)
+                        for scenario_index in range(0, self.num_scenarios)
+                        for frame_index in range(0, self.num_frames - self.frame_step)]
+        self.indices = shuffle(self.indices)
+        #
+        # # Number of generated epochs (increased when the complete dataset has been generated/returned)
+        # self.epoch_count = 0
+        self.augrot = augrot
+        self.augocc = augocc
+        self.augsca = augsca
+        self.ref = ref
+
+        self.pc = data["cleanPC"][:]
+        # self.kp = data["kpGt"][:]
+        self.kp = data["cleanMesh"][:][:,:,self.kp_ind,:]
+        self.lefthandPos = data["refPos"][:]
+        # self.righthandPos = data["righthandPos"][:]
+
+
+    def __len__(self):
+        return self.num_samples
+
+    def __getitem__(self, index):
+        # read frame id
+        scenario_index = index // self.num_frames
+        frame_index = index % self.num_frames
+        # t1
+        point_xyz_t1 = self.pc[scenario_index, frame_index]
+        point_kp_t1 = self.kp[scenario_index, frame_index]
+        # t2
+        point_xyz_t2 = self.pc[scenario_index, frame_index+self.frame_step]
+        point_kp_t2 = self.kp[scenario_index, frame_index+self.frame_step]
+
+        point_xyz_container_t1 = np.zeros((self.num_points, 4))
+        point_xyz_container_t2 = np.zeros((self.num_points, 4))
+
+        # read the handle for nomalization
+        if self.ref == "left":
+            # point_ref = self.data["lefthandPos"][scenario_index, frame_index]
+            point_ref_t1 = self.lefthandPos[scenario_index, frame_index]
+            point_ref_t2 = self.lefthandPos[scenario_index, frame_index+self.frame_step]
+        elif self.ref == "right":
+            # point_ref = self.data["righthandPos"][scenario_index, frame_index]
+            # point_ref = self.righthandPos[scenario_index, frame_index]
+            raise NotImplementedError("To be implemented")
+
+        point_xyz_t1 -= point_ref_t1
+        point_kp_t1 -= point_ref_t1
+
+        point_xyz_t2 -= point_ref_t2
+        point_kp_t2 -= point_ref_t2
+
+        num_mt_map_t1 = self.num_points
+        num_mt_map_t2 = self.num_points
+        if self.augrot is True:
+            angle = np.random.uniform(0, 2 * np.pi)
+            #t1
+            point_xyz_t1 = RandomRotateY(point_xyz_t1,angle)
+            point_kp_t1 = RandomRotateY(point_kp_t1,angle)
+            #t2
+            point_xyz_t2 = RandomRotateY(point_xyz_t2,angle)
+            point_kp_t2 = RandomRotateY(point_kp_t2,angle)
+        if self.augocc is True:
+            pcd_t1 = o3d.geometry.PointCloud()
+            pcd_t2 = o3d.geometry.PointCloud()
+            pcd_t1.points = o3d.utility.Vector3dVector(point_xyz_t1)
+            pcd_t2.points = o3d.utility.Vector3dVector(point_xyz_t2)
+            # use same camera for t1 and t2
+            diameter = np.linalg.norm(
+                np.asarray(pcd_t1.get_max_bound()) - np.asarray(pcd_t1.get_min_bound()))
+            camera = [0, 0, diameter]
+            radius = diameter * 100
+
+            _, pt_map_t1 = pcd_t1.hidden_point_removal(camera, radius)
+            _, pt_map_t2 = pcd_t2.hidden_point_removal(camera, radius)
+
+            pt_map_t1 = pt_map_t1[:self.num_points]
+            num_mt_map_t1 = len(pt_map_t1)
+
+            pt_map_t2 = pt_map_t2[:self.num_points]
+            num_mt_map_t2 = len(pt_map_t2)
+
+            pcd_t1 = pcd_t1.select_by_index(pt_map_t1)
+            pcd_t2 = pcd_t2.select_by_index(pt_map_t1)
+            # pcd = pcd.select_down_sample(pt_map) # can we do double sample?
+            point_xyz_t1 = np.array(pcd_t1.points)
+            point_xyz_t2 = np.array(pcd_t2.points)
+        if self.augsca is True:
+            sx = random.random() + 0.5
+            sy = random.random() + 0.5
+            sz = random.random() + 0.5
+
+            point_xyz_t1 = RandomScale(point_xyz_t1, sx, sy, sz)
+            point_kp_t1 = RandomScale(point_kp_t1, sx, sy, sz)
+
+            point_xyz_t2 = RandomScale(point_xyz_t2, sx, sy, sz)
+            point_kp_t2 = RandomScale(point_kp_t2, sx, sy, sz)
+
+        # padding
+        point_xyz_container_t1[:num_mt_map_t1, :3] = point_xyz_t1[:num_mt_map_t1]
+        point_xyz_container_t2[:num_mt_map_t2, :3] = point_xyz_t2[:num_mt_map_t2]
+
+        if self.padding == "replace":
+            choice_t1 = np.random.choice(num_mt_map_t1, self.num_points-num_mt_map_t1, replace=True)
+            point_xyz_container_t1[num_mt_map_t1:, :3] = point_xyz_t1[choice_t1]
+
+            choice_t2 = np.random.choice(num_mt_map_t2, self.num_points-num_mt_map_t2, replace=True)
+            point_xyz_container_t2[num_mt_map_t2:, :3] = point_xyz_t2[choice_t2]
+
+            return point_xyz_container_t1[:,:3], point_xyz_container_t2[:,:3], point_kp_t1, point_kp_t2, point_ref_t1, point_ref_t2, scenario_index, frame_index
+        elif self.padding == "padzero":
+            return point_xyz_container_t1[:,:3], point_xyz_container_t2[:,:3], point_kp_t1, point_kp_t2, point_ref_t1, point_ref_t2, scenario_index, frame_index
+        elif self.padding == "padzeroflag":
+            point_xyz_container_t1[:num_mt_map_t1, 3] = 1
+            point_xyz_container_t2[:num_mt_map_t2, 3] = 1
+            return  point_xyz_container_t1, point_xyz_container_t2, point_kp_t1, point_kp_t2, point_ref_t1, point_ref_t2, scenario_index, frame_index
+
 def correctHandle(markerarray_miss, l=True, r=True, loffset=np.array([-0.02, 0, -0.07]), roffset=np.array([0, 0, -0.06])):
     # input: markerarray -> ndarray (numframe, nummarker, 3)
     markerarray = np.copy(markerarray_miss)
