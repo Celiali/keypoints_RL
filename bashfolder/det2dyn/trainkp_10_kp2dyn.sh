@@ -41,7 +41,7 @@ RUNPATH=/Midgard/home/zehang/project/keypoint_humanoids
 
 #TODO: 8 18 10 20
 cd $RUNPATH
-python src/trainKp_det2dyn.py --data_path $LOCALDATAPATH/data --log_dir $LOCALDATAPATH/kp2dyn_logs --detector_ck_path $DETECTOR_CKFOLDER --dyn_predictor_ck_path $LOCALDATAPATH/kp2dyn_checkpoint --batch_size 32 --epoch 100 --model pcn_det --augrot --augocc --augsca --savemodel --tasklist 2 4 6 8 10 12 14 16 18 20--numkp 10
+python src/trainKp_det2dyn.py --data_path $LOCALDATAPATH/data --log_dir $LOCALDATAPATH/kp2dyn_logs --detector_ck_path $DETECTOR_CKFOLDER --dyn_predictor_ck_path $LOCALDATAPATH/kp2dyn_checkpoint --batch_size 32 --epoch 100 --model pcn_det --augrot --augocc --augsca --savemodel --tasklist 2 4 6 8 10 12 14 16 18 20 --numkp 10
 
 scp -r $LOCALDATAPATH/kp2dyn_checkpoint/* $DATAPATH/kp2dyn_checkpoint/
 scp -r $LOCALDATAPATH/kp2dyn_logs/* $DATAPATH/kp2dyn_logs/

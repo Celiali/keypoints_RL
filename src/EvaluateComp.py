@@ -1,13 +1,13 @@
 import os, sys, torch, importlib, argparse, numpy as np, trimesh
-from tqdm import tqdm
-from util.Torch_Utility import chamfer_distance_with_batch
-import matplotlib.pyplot as plt
 
 sys.path.append('util')
 sys.path.append('models')
 sys.path.append('checkpoint')
 sys.path.append('/Midgard/home/zehang/project/keypoint_humanoids')
 
+from tqdm import tqdm
+from util.Torch_Utility import chamfer_distance_with_batch
+import matplotlib.pyplot as plt
 from torch.utils.data import DataLoader
 from util import Datasets
 from util.Torch_Utility import copy_parameters, kp_pred, calc_smooth, calc_dist_point2mesh
@@ -87,7 +87,7 @@ def main(args, task_index):
     # load the detector
     MODEL = importlib.import_module(args.model)
     detector = MODEL.get_model(args=args, grid_size=args.grid_size,
-                                grid_scale=args.grid_scale, num_coarse=args.num_coarse, num_channel=3, num_cp = NUM_KP).to(device)
+                                grid_scale=args.grid_scale, num_coarse=args.num_coarse, num_channel=3, num_cp = numkp).to(device)
 
     detector = torch.nn.DataParallel(detector)
     # load the decoder
@@ -101,6 +101,7 @@ def main(args, task_index):
 
     bestepoch_detector = np.max([int(ckfile.split('.')[0].split('_')[-1]) for ckfile in os.listdir(detector_checkpoints_dir)])
     args.restore_path_root = os.path.join(detector_checkpoints_dir, "model_epoch_{}.pth".format(bestepoch_detector))
+    print(f"{args.restore_path_root}")
     detector.load_state_dict(torch.load(args.restore_path_root)['model_state_dict'])
     detector.eval()
 
@@ -108,6 +109,7 @@ def main(args, task_index):
 
     bestepoch_decoder = np.max([int(ckfile.split('.')[0].split('_')[-1]) for ckfile in os.listdir(completor_checkpoints_dir)])
     args.restore_path_root = os.path.join(completor_checkpoints_dir, "model_epoch_{}.pth".format(bestepoch_decoder))
+    print(f"{args.restore_path_root}")
     detector.load_state_dict(torch.load(args.restore_path_root)['model_state_dict'])
     completor.eval()
 
