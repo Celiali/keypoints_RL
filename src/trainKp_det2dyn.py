@@ -149,6 +149,7 @@ def main(args, task_index):
             # for  points, target, _ in tepoch:
             for  points_t1, points_t2, target_t1, target_t2, ref_t1, ref_t2, sid, fid in tepoch:
                 batchcount += 1
+                optimizer.zero_grad()
                 points_t1 = points_t1.transpose(2, 1).float().cuda()
                 points_t2 = points_t2.transpose(2, 1).float().cuda()
 
