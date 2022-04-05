@@ -116,7 +116,6 @@ def main(args, task_index):
     bestepoch = np.max([int(ckfile.split('.')[0].split('_')[-1]) for ckfile in os.listdir(detector_checkpoints_dir)])
     args.restore_path_root = os.path.join(detector_checkpoints_dir, "model_epoch_{}.pth".format(bestepoch))
     detector.load_state_dict(torch.load(args.restore_path_root)['model_state_dict'])
-    print(f"load state dict: {torch.load(args.restore_path_root)['model_state_dict']}")
     detector.eval()
 
 
