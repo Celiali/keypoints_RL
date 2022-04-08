@@ -150,9 +150,9 @@ def main(args, task_index):
             errorlist = np.array([])
             completor.train()
             # for  points, target, _ in tepoch:
-            for  points, target, ref, sid, fid in tepoch:
-                optimizer.zero_grad()
+            for points, target, ref, sid, fid in tepoch:
                 batchcount += 1
+                optimizer.zero_grad()
                 points, target = points.transpose(2, 1).float().cuda(), target.float().cuda()
 
                 pred_kp = detector(points)
