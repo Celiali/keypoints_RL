@@ -299,7 +299,8 @@ keypoint_edges_31 = MeshEdgeMap(keypoint_edges)
 
 keypoint_mesh_31 = Edge2Mesh(keypoint_edges_31)
 
-keypoint_mesh_face = Readface("util/kp_face.txt")
+keypoint_mesh_face = Readface("/home/zehang/Downloads/project/keypoint_humanoids/util/kp_face.txt")
+# keypoint_mesh_face = Readface("util/kp_face.txt")
 
 def validate_keypoint_graph(indices: List[int], edges: List[Tuple[int, int]]):
     for (e_from, e_to) in edges:

@@ -5,9 +5,9 @@
 
 import os, sys, torch, importlib, argparse, numpy as np
 from tqdm import tqdm
-sys.path.append('util')
-sys.path.append('models')
-sys.path.append('checkpoint')
+sys.path.append('../util')
+sys.path.append('../models')
+sys.path.append('../checkpoint')
 sys.path.append('/Midgard/home/zehang/project/keypoint_humanoids')
 
 from torch.utils.data import DataLoader
@@ -65,7 +65,9 @@ def main(args, task_index):
     ''' === Set up Task and Load Data === '''
     root = args.data_path
     print("load data from {}".format(root))
-    kp_dict_file = "src/kp_ind_list.pickle"
+    kp_dict_file = "/home/zehang/Downloads/project/keypoint_humanoids/src/kp_ind_list.pickle"
+    # kp_dict_file = "src/kp_ind_list.pickle"
+
     # checkpoints_dir = "checkpoint/{}_{}_{}_{}/{}/{}/".format(args.model, args.augrot, args.augocc, args.augsca, task_index, args.numkp)
     detector_checkpoints_dir = os.path.join(args.detector_ck_path, "{}_{}_{}_{}/{}/{}/".format(args.model, args.augrot, args.augocc, args.augsca, task_index, args.numkp))
     completor_checkpoints_dir = os.path.join(args.decoder_ck_path, "{}_{}_{}_{}/{}/{}/".format(args.model, args.augrot, args.augocc, args.augsca, task_index, args.numkp))
@@ -116,7 +118,7 @@ def main(args, task_index):
     bestepoch = np.max([int(ckfile.split('.')[0].split('_')[-1]) for ckfile in os.listdir(detector_checkpoints_dir)])
     args.restore_path_root = os.path.join(detector_checkpoints_dir, "model_epoch_{}.pth".format(bestepoch))
     detector.load_state_dict(torch.load(args.restore_path_root)['model_state_dict'])
-    print(f"load state dict: {detector_checkpoints_dir}")
+    print(f"load state dict: {args.restore_path_root}")
     detector.eval()
 
 
@@ -149,6 +151,7 @@ def main(args, task_index):
             completor.train()
             # for  points, target, _ in tepoch:
             for  points, target, ref, sid, fid in tepoch:
+                optimizer.zero_grad()
                 batchcount += 1
                 points, target = points.transpose(2, 1).float().cuda(), target.float().cuda()
 

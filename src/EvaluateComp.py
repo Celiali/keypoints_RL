@@ -159,12 +159,19 @@ if __name__ == '__main__':
         
         '''
     args = parse_args()
-    task_index_list = args.tasklist
-    if task_index_list == None:
-        task_index_list = np.arange(1,21)
-        print("test all")
+    # task_index_list = args.tasklist
+    # if task_index_list == None:
+    #     task_index_list = np.arange(1,21)
+    #     print("test all")
 
-    test_error_list = main(args, task_index=2)
+    test_error_total = []
+    for i in range([2,4,6,8,10,12,14,16,18,20]):
+        test_error_list = main(args, task_index=i)
+        test_error_total.append(test_error_list)
+    import pickle
+    errorfile = open("./exp1_sim_{}.acc".format(args.model), 'wb')
+    pickle.dump(test_error_total, errorfile)
+    errorfile.close()
 
     # num_kp_list = [3,5,10,15,20,25,30,35,40,45,50,55,60]
     #
