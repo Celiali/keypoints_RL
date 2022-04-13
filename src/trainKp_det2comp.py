@@ -5,9 +5,9 @@
 
 import os, sys, torch, importlib, argparse, numpy as np
 from tqdm import tqdm
-sys.path.append('../util')
-sys.path.append('../models')
-sys.path.append('../checkpoint')
+sys.path.append('util')
+sys.path.append('models')
+sys.path.append('checkpoint')
 sys.path.append('/Midgard/home/zehang/project/keypoint_humanoids')
 
 from torch.utils.data import DataLoader
@@ -65,7 +65,7 @@ def main(args, task_index):
     ''' === Set up Task and Load Data === '''
     root = args.data_path
     print("load data from {}".format(root))
-    kp_dict_file = "/home/zehang/Downloads/project/keypoint_humanoids/src/kp_ind_list.pickle"
+    kp_dict_file = "src/kp_ind_list.pickle"
     # kp_dict_file = "src/kp_ind_list.pickle"
 
     # checkpoints_dir = "checkpoint/{}_{}_{}_{}/{}/{}/".format(args.model, args.augrot, args.augocc, args.augsca, task_index, args.numkp)

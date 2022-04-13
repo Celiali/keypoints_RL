@@ -12,9 +12,6 @@ from torch.utils.data import DataLoader
 from util import Datasets
 from util.Torch_Utility import copy_parameters, kp_pred, calc_smooth, calc_dist_point2mesh
 from util.loaddata import General_PartKPDataLoader_HDF5
-from util.SimulatedData import keypoint_edges_31
-import time
-from util.SimulatedData import keypoint_mesh_face
 import matplotlib.pyplot as plt
 
 
@@ -58,17 +55,15 @@ def parse_args():
     return parser.parse_args()
 
 
-def main(args, task_index):
+def main(args, task_index, numkp):
     '''
     keypoint detection main
     '''
 
-    numkp = 3
-
     ''' === Set up Task and Load Data === '''
     root = args.data_path
     print("load data from {}".format(root))
-    # kp_dict_file = "src/kp_ind_list.pickle"
+    kp_dict_file = "src/kp_ind_list.pickle"
 
     # checkpoints_dir = os.path.join(args.ck_path, "{}_{}_{}_{}/{}/{}/".format(args.model, args.augrot, args.augocc, args.augsca, task_index, args.numkp))
     detector_checkpoints_dir = os.path.join(args.detector_ck_path, "{}_{}_{}_{}/{}/{}/".format(args.model, args.augrot, args.augocc, args.augsca, task_index, numkp))
@@ -85,11 +80,12 @@ def main(args, task_index):
     ''' === Load Model and Backup Scripts === '''
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     # load the detector
-    MODEL = importlib.import_module(args.model)
-    detector = MODEL.get_model(args=args, grid_size=args.grid_size,
+    MODEL_DET = importlib.import_module(args.model)
+    detector = MODEL_DET.get_model(args=args, grid_size=args.grid_size,
                                 grid_scale=args.grid_scale, num_coarse=args.num_coarse, num_channel=3, num_cp = numkp).to(device)
 
     detector = torch.nn.DataParallel(detector)
+
     # load the decoder
     MODEL_COMP = importlib.import_module("decoder_comp")
     completor = MODEL_COMP.get_model(args=args, grid_size=args.grid_size,
@@ -101,29 +97,29 @@ def main(args, task_index):
 
     bestepoch_detector = np.max([int(ckfile.split('.')[0].split('_')[-1]) for ckfile in os.listdir(detector_checkpoints_dir)])
     args.restore_path_root = os.path.join(detector_checkpoints_dir, "model_epoch_{}.pth".format(bestepoch_detector))
-    print(f"{args.restore_path_root}")
     detector.load_state_dict(torch.load(args.restore_path_root)['model_state_dict'])
+    print(f"load detector state dict: {args.restore_path_root}")
     detector.eval()
 
     ''' === Restore decoder Model from Checkpoints, If there is any === '''
 
-    bestepoch_decoder = np.max([int(ckfile.split('.')[0].split('_')[-1]) for ckfile in os.listdir(completor_checkpoints_dir)])
-    args.restore_path_root = os.path.join(completor_checkpoints_dir, "model_epoch_{}.pth".format(bestepoch_decoder))
-    print(f"{args.restore_path_root}")
-    detector.load_state_dict(torch.load(args.restore_path_root)['model_state_dict'])
+    bestepoch_completor = np.max([int(ckfile.split('.')[0].split('_')[-1]) for ckfile in os.listdir(completor_checkpoints_dir)])
+    args.restore_path_root = os.path.join(completor_checkpoints_dir, "model_epoch_{}.pth".format(bestepoch_completor))
+    print(f"load completor state dict: {args.restore_path_root}")
+    completor.load_state_dict(torch.load(args.restore_path_root)['model_state_dict'])
     completor.eval()
 
     '''
        load the dataset
        '''
 
-    root = "../data/"
+    root = args.data_path
     tasks_path = os.path.join(root, "h5data/tasks")
     print("Chosen task:", task_index)
 
     # TEST
-    H5DataPath = os.path.join(tasks_path, "{}_{}_clean.h5".format(task_index, 'test'))
-    TEST_DATASET = General_PartKPDataLoader_HDF5(H5DataPath, augrot=args.augrot, augocc=args.augocc, augsca=args.augsca, ref="left")
+    H5DataPath = os.path.join(tasks_path, "{}_{}_full.h5".format(task_index, 'test'))
+    TEST_DATASET = General_PartKPDataLoader_HDF5(H5DataPath, augrot=args.augrot, augocc=args.augocc, augsca=args.augsca, ref="left", kp_dict_file=kp_dict_file, numkp=numkp)
 
 
     testDataLoader = DataLoader(TEST_DATASET, batch_size=args.batch_size, shuffle=True, num_workers=4, drop_last=False)
@@ -146,7 +142,6 @@ def main(args, task_index):
 
 
             batcherror = fine_chamferdist_batch.data.cpu().numpy()
-            print(batcherror.shape)
             test_errorlist = np.hstack((test_errorlist, batcherror))
 
     return test_errorlist
@@ -155,7 +150,7 @@ if __name__ == '__main__':
     '''
         python src/Evaluate_acc_sim.py --batch_size 256 --model pcn_det --augrot --augocc --augsca  
         
-        --data_path /local_storage/users/zehang/keypoint_humanoids/data --detector_ck_path /nas/zehang/keypoint_humanoids/detect_checkpoint --decoder_ck_path /nas/zehang/keypoint_humanoids/kp2comp_checkpoint --batch_size 32 --model pcn_det --augrot --augocc --augsca --savemodel --tasklist 2 4 6 8 10 12 14 16 18 20--numkp 3
+        --data_path /local_storage/users/zehang/keypoint_humanoids/data --detector_ck_path /nas/zehang/keypoint_humanoids/detect_checkpoint --decoder_ck_path /nas/zehang/keypoint_humanoids/kp2comp_checkpoint --batch_size 32 --model pcn_det --augrot --augocc --augsca --savemodel --tasklist 2 4 6 8 10 12 14 16 18 20 --numkp 3
         
         '''
     args = parse_args()
@@ -164,10 +159,12 @@ if __name__ == '__main__':
     #     task_index_list = np.arange(1,21)
     #     print("test all")
 
-    test_error_total = []
-    for i in range([2,4,6,8,10,12,14,16,18,20]):
-        test_error_list = main(args, task_index=i)
-        test_error_total.append(test_error_list)
+    test_error_total = {}
+    for task_index in [2,4,6,8,10,12,14,16,18,20]:
+        test_error_total.update({task_index:{}})
+        for numkp in [3,5,10,15,20,25,30,35,40,45,50,55,60]: #[3,5,10,15,20,25,30,35,40,45,50,55,60]:
+            test_error_list = main(args, task_index=task_index, numkp=numkp)
+            test_error_total[task_index].update({numkp:test_error_list})
     import pickle
     errorfile = open("./exp1_sim_{}.acc".format(args.model), 'wb')
     pickle.dump(test_error_total, errorfile)
